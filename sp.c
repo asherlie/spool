@@ -100,3 +100,8 @@ void exec_routine(struct spool_t* s, void* (*func)(void*),
                                      void* arg){
     insert_rq(&s->rq, func, arg);
 }
+
+#if 0
+TODO: write destruction/free() functions
+TODO: add await/set target functionality
+#endif
