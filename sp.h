@@ -1,6 +1,7 @@
 #include <pthread.h>
 
 struct thread{
+    int thread_id;
     pthread_t pth;
 };
 
