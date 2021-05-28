@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include "sp.h"
 
 struct routine* pop_rq(struct routine_queue* rq){
@@ -37,7 +38,11 @@ void* await_instructions(void* v_rq){
          * to re-block on cond_t
          * because pop_rq() is threadsafe
          */
+        /*puts("WAITING");*/
         pthread_cond_wait(&rq->spool_up, &tmplck);
+
+        pthread_mutex_unlock(&tmplck);
+        /*puts("DONE");*/
 
         if(!(r = pop_rq(rq)))continue;
 
@@ -60,12 +65,13 @@ void init_tq(struct thread_queue* tq, int n_threads, struct routine_queue* rq){
 void init_rq(struct routine_queue* rq){
     pthread_cond_init(&rq->spool_up, NULL);
     pthread_mutex_init(&rq->rlock, NULL);
+    rq->first = rq->last = NULL;
 }
 
 void init_spool_t(struct spool_t* s, int n_threads){
     /*pthread_cond_init(&s->spool_up, NULL);*/
-    init_rq(s->rq);
-    init_tq(s->tq, n_threads, s->rq);
+    init_rq(&s->rq);
+    init_tq(&s->tq, n_threads, &s->rq);
 }
 
 void insert_rq(struct routine_queue* rq, void* (*func)(void*),
@@ -81,7 +87,39 @@ void insert_rq(struct routine_queue* rq, void* (*func)(void*),
     else rq->last->next = r;
     rq->last = r;
     pthread_mutex_unlock(&rq->rlock);
+
+    /* spool at least one thread up for this */
+
+    /* TODO: there's a chance that no other threads
+     * will be blocking on spool_up when this is called
+     * a scaled down example of this always occurs
+     * when there is only one thread in the pool
+     * what are some workarounds?
+     */
+    pthread_cond_signal(&rq->spool_up);
+}
+
+void exec_routine(struct spool_t* s, void* (*func)(void*),
+                                     void* arg){
+    insert_rq(&s->rq, func, arg);
+}
+
+void* tst(void* arg){
+    printf("%i\n", *((int*)arg));
+
+    return NULL;
 }
 
 int main(){
+    struct spool_t s;
+    int* arg;
+
+    init_spool_t(&s, 4);
+    for(int i = 0; i < 40; ++i){
+        arg = malloc(sizeof(int));
+        *arg = i;
+        exec_routine(&s, tst, arg);
+    }
+
+    usleep(5000000);
 }

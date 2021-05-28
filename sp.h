@@ -10,7 +10,7 @@ struct thread_queue{
     /* this is an array for now - no reason for added complexity */
     struct thread* threads;
     /* in case we'd like to support dynamic resizing */
-    int n_threads; /* , thread_cap */;
+    int n_threads; /* , thread_cap */
 };
 
 //struct routine;
@@ -29,6 +29,6 @@ struct routine_queue{
 };
 
 struct spool_t{
-    struct thread_queue* tq;
-    struct routine_queue* rq;
+    struct thread_queue tq;
+    struct routine_queue rq;
 };
