@@ -25,7 +25,7 @@ struct routine{
 struct routine_queue{
     pthread_cond_t spool_up;
     pthread_mutex_t rlock;
-    struct routine* r;
+    struct routine* first, * last;
 };
 
 struct spool_t{

@@ -3,11 +3,13 @@
 #include "sp.h"
 
 struct routine* pop_rq(struct routine_queue* rq){
-    struct routine* ret = NULL;
+    struct routine* ret;
 
     pthread_mutex_lock(&rq->rlock);
-    ret = rq->r;
-    if(ret)rq->r = rq->r->next;
+
+    ret = rq->first;
+    if(ret)rq->first = rq->first->next;
+
     pthread_mutex_unlock(&rq->rlock);
 
     return ret;
@@ -64,6 +66,21 @@ void init_spool_t(struct spool_t* s, int n_threads){
     /*pthread_cond_init(&s->spool_up, NULL);*/
     init_rq(s->rq);
     init_tq(s->tq, n_threads, s->rq);
+}
+
+void insert_rq(struct routine_queue* rq, void* (*func)(void*),
+                                         void* arg){
+    struct routine* r = malloc(sizeof(struct routine));
+
+    r->func = func;
+    r->arg = arg;
+    r->next = NULL;
+
+    pthread_mutex_lock(&rq->rlock);
+    if(!rq->first)rq->first = r;
+    else rq->last->next = r;
+    rq->last = r;
+    pthread_mutex_unlock(&rq->rlock);
 }
 
 int main(){
