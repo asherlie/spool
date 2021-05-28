@@ -32,3 +32,7 @@ struct spool_t{
     struct thread_queue tq;
     struct routine_queue rq;
 };
+
+void init_spool_t(struct spool_t* s, int n_threads);
+void exec_routine(struct spool_t* s, void* (*func)(void*),
+                                     void* arg);

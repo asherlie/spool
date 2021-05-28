@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include "sp.h"
 
 struct routine* pop_rq(struct routine_queue* rq){
@@ -38,11 +37,9 @@ void* await_instructions(void* v_rq){
          * to re-block on cond_t
          * because pop_rq() is threadsafe
          */
-        /*puts("WAITING");*/
         pthread_cond_wait(&rq->spool_up, &tmplck);
 
         pthread_mutex_unlock(&tmplck);
-        /*puts("DONE");*/
 
         if(!(r = pop_rq(rq)))continue;
 
@@ -102,24 +99,4 @@ void insert_rq(struct routine_queue* rq, void* (*func)(void*),
 void exec_routine(struct spool_t* s, void* (*func)(void*),
                                      void* arg){
     insert_rq(&s->rq, func, arg);
-}
-
-void* tst(void* arg){
-    printf("%i\n", *((int*)arg));
-
-    return NULL;
-}
-
-int main(){
-    struct spool_t s;
-    int* arg;
-
-    init_spool_t(&s, 4);
-    for(int i = 0; i < 40; ++i){
-        arg = malloc(sizeof(int));
-        *arg = i;
-        exec_routine(&s, tst, arg);
-    }
-
-    usleep(5000000);
 }
