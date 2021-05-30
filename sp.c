@@ -61,6 +61,18 @@ void destroy_spool_t(struct spool_t* s){
     destroy_tq(&s->tq);
 }
 
+#if 0
+this is a kind of inefficient method to use - imagine a spool_t with 2 threads
+initially both run simultaneously
+
+after the first round, though, they will alternate because they rely on one another
+to wake up after the other has executed
+
+this is the same issue that plagues n_threads == 1
+
+a better method might be to not pthread_cond_wait() when we have just performed a func(arg)
+#endif
+
 void* await_instructions(void* v_rq){
     struct routine_queue* rq = v_rq;
     struct routine* r;
