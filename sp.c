@@ -22,18 +22,23 @@ struct routine* pop_rq(struct routine_queue* rq){
  */
 void destroy_rq(struct routine_queue* rq){
     /* ~free rq here~ */
-    (void)rq;
+    struct routine* p = rq->first;
+    if(p){
+        for(struct routine* r = p->next; r; r = r->next){
+            free(p);
+            p = r;
+        }
+        free(p);
+    }
 }
 
 void destroy_tq(struct thread_queue* tq){
-    (void)tq;
+    free(tq->threads);
 }
 
 void join_tq(struct thread_queue* tq){
     for(int i = 0; i < tq->n_threads; ++i){
-        printf("attempting to join thread %i\n", i);
         pthread_join(tq->threads[i].pth, NULL);
-        printf("joined thread %i\n", i);
     }
 }
 
@@ -85,13 +90,11 @@ void* await_instructions(void* v_rq){
          * pauses/resumes between
          */
         if(rq->routines_completed == rq->r_target){
-            puts("MET TARGET");
             /*rq->flag = R_PAUSE;*/
             rq->flag = R_EXIT;
         }
 
         if(rq->flag == R_EXIT){
-            puts("REACHED EXIT POINT");
             pthread_mutex_destroy(&tmplck);
 
             /* just in case a thread has been waiting since
@@ -107,10 +110,8 @@ void* await_instructions(void* v_rq){
              * destroying the rq
              */
             if(!(--rq->running_threads)){
-                puts("DESTROYED RQ");
                 destroy_rq(rq);
             }
-            printf("decremented RT to: %i\n", rq->running_threads);
             return NULL;
         }
 
@@ -120,8 +121,8 @@ void* await_instructions(void* v_rq){
         if(!(r = pop_rq(rq)))continue;
 
         r->func(r->arg);
+        free(r);
         ++rq->routines_completed;
-        printf("i routine comp: %i\n", rq->routines_completed);
 
         /* in case a thread is finishing up func()
          * as we're re-waiting to pause
@@ -142,7 +143,6 @@ void init_tq(struct thread_queue* tq, int n_threads, struct routine_queue* rq){
     tq->n_threads = n_threads;
     for(int i = 0; i < n_threads; ++i){
         tq->threads[i].thread_id = i;
-        printf("spawned thread %i\n", i);
         pthread_create(&tq->threads[i].pth, NULL, await_instructions, rq);
     }
 }
