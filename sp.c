@@ -15,6 +15,39 @@ struct routine* pop_rq(struct routine_queue* rq){
     return ret;
 }
 
+/* this should only be called 
+ * when n-1 threads have exited
+ *
+ * MEANT TO BE CALLED BY await_instructions()
+ */
+void destroy_rq(struct routine_queue* rq){
+    /* ~free rq here~ */
+    (void)rq;
+}
+
+void destroy_tq(struct thread_queue* tq){
+    (void)tq;
+}
+
+/* destroy_rq() will initiate the
+ * process of destroying the rq
+ * by first killing all threads
+ *
+ * destroy_rq() will be called by await_instructions()
+ *
+ * destroy_spool_t() first sets flag to R_EXIT
+ * it then waits for all threads to exit once
+ * they're done with their current routine
+ * R_EXIT will lead to destroy_rq() to be called
+ */
+void destroy_spool_t(struct spool_t* s){
+    s->rq.flag = R_EXIT;
+    for(int i = 0; i < s->tq.n_threads; ++i){
+        pthread_join(s->tq.threads[i].pth, NULL);
+    }
+    destroy_tq(&s->tq);
+}
+
 void* await_instructions(void* v_rq){
     struct routine_queue* rq = v_rq;
     struct routine* r;
@@ -49,16 +82,22 @@ void* await_instructions(void* v_rq){
             puts("MET TARGET");
             /*rq->flag = R_PAUSE;*/
             rq->flag = R_EXIT;
+        }
+
+        if(rq->flag == R_EXIT){
+            pthread_mutex_destroy(&tmplck);
 
             /* TODO:
              * once this is equal to n_threads, we can
              * safely destroy the entire queue
             */
-            /*++rq->exited;*/
-        }
-
-        if(rq->flag == R_EXIT){
-            pthread_mutex_destroy(&tmplck);
+            /*if(++rq->exited == rq->n_threads) ;*/
+            /* the last thread to exit is responsible for
+             * destroying the rq
+             */
+            if(!(--rq->running_threads)){
+                destroy_rq(rq);
+            }
             return NULL;
         }
 
@@ -94,18 +133,23 @@ void init_tq(struct thread_queue* tq, int n_threads, struct routine_queue* rq){
     }
 }
 
-void init_rq(struct routine_queue* rq){
+void init_rq(struct routine_queue* rq, int n_threads){
     pthread_cond_init(&rq->spool_up, NULL);
     pthread_mutex_init(&rq->rlock, NULL);
     rq->first = rq->last = NULL;
     rq->flag = R_BUS;
     rq->routines_completed = 0;
     rq->r_target = -1;
+
+    /* only used to determine which thread should
+     * destroy the rq instance
+     */
+    rq->running_threads = n_threads;
 }
 
 void init_spool_t(struct spool_t* s, int n_threads){
     /*pthread_cond_init(&s->spool_up, NULL);*/
-    init_rq(&s->rq);
+    init_rq(&s->rq, n_threads);
     init_tq(&s->tq, n_threads, &s->rq);
 }
 
