@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <assert.h>
+
 #include "sp.h"
 
 struct routine* pop_rq(struct routine_queue* rq){
@@ -139,6 +141,13 @@ void* await_instructions(void* v_rq){
 }
 
 void init_tq(struct thread_queue* tq, int n_threads, struct routine_queue* rq){
+    /* for now, 1 thread won't work - we need other threads to 
+     * pthread_cond_signal(). this is just one example of a bug
+     * that will occur every time all threads are waiting at the
+     * same time
+     * TODO: fix this
+     */
+    assert(n_threads > 1);
     tq->threads = malloc(sizeof(struct thread)*n_threads);
     tq->n_threads = n_threads;
     for(int i = 0; i < n_threads; ++i){
