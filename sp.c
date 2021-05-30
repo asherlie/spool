@@ -91,7 +91,13 @@ void* await_instructions(void* v_rq){
          * TODO: why doesn't this work with
          * pauses/resumes between
          */
-        if(rq->routines_completed == rq->r_target){
+        /*if(rq->routines_completed == rq->r_target){*/
+        /* routines_completed may never be equal to 
+         * r_target - it's possible that multiple
+         * threads increment routines_completed before
+         * this is evaluated
+         */
+        if(rq->routines_completed >= rq->r_target){
             /*rq->flag = R_PAUSE;*/
             rq->flag = R_EXIT;
         }
