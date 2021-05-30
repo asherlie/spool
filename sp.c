@@ -29,6 +29,14 @@ void destroy_tq(struct thread_queue* tq){
     (void)tq;
 }
 
+void join_tq(struct thread_queue* tq){
+    for(int i = 0; i < tq->n_threads; ++i){
+        printf("attempting to join thread %i\n", i);
+        pthread_join(tq->threads[i].pth, NULL);
+        printf("joined thread %i\n", i);
+    }
+}
+
 /* destroy_rq() will initiate the
  * process of destroying the rq
  * by first killing all threads
@@ -42,9 +50,7 @@ void destroy_tq(struct thread_queue* tq){
  */
 void destroy_spool_t(struct spool_t* s){
     s->rq.flag = R_EXIT;
-    for(int i = 0; i < s->tq.n_threads; ++i){
-        pthread_join(s->tq.threads[i].pth, NULL);
-    }
+    join_tq(&s->tq);
     destroy_tq(&s->tq);
 }
 
@@ -70,7 +76,7 @@ void* await_instructions(void* v_rq){
          * to re-block on cond_t
          * because pop_rq() is threadsafe
          */
-        pthread_cond_wait(&rq->spool_up, &tmplck);
+        if(rq->flag != R_EXIT)pthread_cond_wait(&rq->spool_up, &tmplck);
 
         pthread_mutex_unlock(&tmplck);
 
@@ -85,8 +91,13 @@ void* await_instructions(void* v_rq){
         }
 
         if(rq->flag == R_EXIT){
+            puts("REACHED EXIT POINT");
             pthread_mutex_destroy(&tmplck);
 
+            /* just in case a thread has been waiting since
+             * before R_EXIT has been set
+             */
+            pthread_cond_broadcast(&rq->spool_up);
             /* TODO:
              * once this is equal to n_threads, we can
              * safely destroy the entire queue
@@ -96,8 +107,10 @@ void* await_instructions(void* v_rq){
              * destroying the rq
              */
             if(!(--rq->running_threads)){
+                puts("DESTROYED RQ");
                 destroy_rq(rq);
             }
+            printf("decremented RT to: %i\n", rq->running_threads);
             return NULL;
         }
 
@@ -129,6 +142,7 @@ void init_tq(struct thread_queue* tq, int n_threads, struct routine_queue* rq){
     tq->n_threads = n_threads;
     for(int i = 0; i < n_threads; ++i){
         tq->threads[i].thread_id = i;
+        printf("spawned thread %i\n", i);
         pthread_create(&tq->threads[i].pth, NULL, await_instructions, rq);
     }
 }
@@ -194,6 +208,15 @@ void resume_exec(struct spool_t* s){
 
 void set_routine_target(struct spool_t* s, int target){
     s->rq.r_target = target;
+}
+
+/* returns success */
+_Bool await_routine_target(struct spool_t* s){
+    if(s->rq.r_target == -1)return 0;
+    /*pthread_cond_broadcast(&s->rq.spool_up);*/
+    join_tq(&s->tq);
+    destroy_tq(&s->tq);
+    return 1;
 }
 
 #if 0

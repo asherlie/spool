@@ -44,6 +44,8 @@ struct routine_queue{
     int r_target;
     _Atomic int routines_completed; 
     _Atomic int flag;
+    _Atomic int running_threads;
+
 };
 
 struct spool_t{
@@ -65,3 +67,5 @@ void resume_exec(struct spool_t* s);
  * execution of routines after n have completed
  */
 void set_routine_target(struct spool_t* s, int target);
+_Bool await_routine_target(struct spool_t* s);
+void destroy_spool_t(struct spool_t* s);
