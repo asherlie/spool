@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <assert.h>
 
 #include "sp.h"
 
@@ -61,21 +60,13 @@ void destroy_spool_t(struct spool_t* s){
     destroy_tq(&s->tq);
 }
 
-#if 0
-this is a kind of inefficient method to use - imagine a spool_t with 2 threads
-initially both run simultaneously
-
-after the first round, though, they will alternate because they rely on one another
-to wake up after the other has executed
-
-this is the same issue that plagues n_threads == 1
-
-a better method might be to not pthread_cond_wait() when we have just performed a func(arg)
-#endif
-
 void* await_instructions(void* v_rq){
     struct routine_queue* rq = v_rq;
     struct routine* r;
+    /* if this thread was able to run a routine
+     * in the previous iteration, we won't block
+     */
+    _Bool prev_run = 0;
 
     pthread_mutex_t tmplck;
     pthread_mutex_init(&tmplck, NULL);
@@ -95,7 +86,9 @@ void* await_instructions(void* v_rq){
          * to re-block on cond_t
          * because pop_rq() is threadsafe
          */
-        if(rq->flag != R_EXIT)pthread_cond_wait(&rq->spool_up, &tmplck);
+        if(!prev_run && rq->flag != R_EXIT){
+            pthread_cond_wait(&rq->spool_up, &tmplck);
+        }
 
         pthread_mutex_unlock(&tmplck);
 
@@ -109,7 +102,13 @@ void* await_instructions(void* v_rq){
          * threads increment routines_completed before
          * this is evaluated
          */
-        if(rq->routines_completed >= rq->r_target){
+
+        /* == should be used for now. if >= needs to be
+         * used, then r_target should be initialized
+         * to INT_MAX rather than -1
+         */
+        /*if(rq->routines_completed >= rq->r_target){*/
+        if(rq->routines_completed == rq->r_target){
             /*rq->flag = R_PAUSE;*/
             rq->flag = R_EXIT;
         }
@@ -135,10 +134,19 @@ void* await_instructions(void* v_rq){
             return NULL;
         }
 
-        /* if we're meant to pause, re-wait */
-        if(rq->flag == R_PAUSE)continue;
+        /* if we're meant to pause or we couldn't pop
+         * a routine, re-wait
+         */
+        if(rq->flag == R_PAUSE || !(r = pop_rq(rq))){
+            prev_run = 0;
+            continue;
+        }
 
-        if(!(r = pop_rq(rq)))continue;
+        /* if we were able to succesfully pop a routine,
+         * we'll attempt to do the same without pausing
+         * next iteration
+         */
+        prev_run = 1;
 
         r->func(r->arg);
         free(r);
@@ -159,13 +167,6 @@ void* await_instructions(void* v_rq){
 }
 
 void init_tq(struct thread_queue* tq, int n_threads, struct routine_queue* rq){
-    /* for now, 1 thread won't work - we need other threads to 
-     * pthread_cond_signal(). this is just one example of a bug
-     * that will occur every time all threads are waiting at the
-     * same time
-     * TODO: fix this
-     */
-    assert(n_threads > 1);
     tq->threads = malloc(sizeof(struct thread)*n_threads);
     tq->n_threads = n_threads;
     for(int i = 0; i < n_threads; ++i){
