@@ -5,25 +5,46 @@
 #include "sp.h"
 
 void* tst(void* arg){
-    usleep((random() % 100000) + 1000);
+    /*usleep((random() % 100000) + 1000);*/
+    usleep(500000);
     printf("%i\n", *((int*)arg));
 
     return NULL;
 }
 
-int main(){
+int main(int a, char** b){
+    if(a <= 1)return 0;
     struct spool_t s;
-    int* arg, count, buf[1000];
+    /*int* arg, count, buf[10000];*/
+    int* arg, count, count_to = atoi(b[1]),
+         n_threads = (a > 2) ? atoi(b[2]) : 1;
+    int* buf = malloc(sizeof(int)*count_to);
 
-    init_spool_t(&s, 30);
-    set_routine_target(&s, 178);
-    for(int i = 0; i < 400; ++i){
+    printf("nt: %i ct: %i\n", n_threads, count_to);
+
+    init_spool_t(&s, n_threads);
+    set_routine_target(&s, count_to);
+
+    /* init_spool_t() takes time to set up threads
+     * TODO: should it possibly only return once
+     * at least one thread has become ready?
+     *
+     * could write a separate function called 
+     * await_thread_ready()
+     * and add another pthread conditional
+     */
+    usleep(1000);
+
+    for(int i = 0; i < count_to; ++i){
         buf[i] = i;
         arg = buf+i;
         exec_routine(&s, tst, arg);
     }
     /*destroy_spool_t(&s);*/
     await_routine_target(&s);
+
+    free(buf);
+
     return 0;
 
     count = 0;
@@ -33,24 +54,5 @@ int main(){
         else
             resume_exec(&s);
     }
-
-    pause_exec(&s);
-    /*usleep(10000);*/
-    /*puts("PAUSING FOR");*/
-    for(int i = 0; i < 5; ++i){
-        printf("%i", i);
-        fflush(stdout);
-        usleep(250000);
-        putchar('.');
-        fflush(stdout);
-        usleep(250000);
-        putchar('.');
-        fflush(stdout);
-    }
-    puts("5");
-    resume_exec(&s);
-    pause_exec(&s);
-    resume_exec(&s);
-    pause_exec(&s);
-    usleep(10000000);
+    return 0;
 }
