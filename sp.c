@@ -87,6 +87,7 @@ void* await_instructions(void* v_rq){
          * because pop_rq() is threadsafe
          */
         if(!prev_run && rq->flag != R_EXIT){
+            rq->set_up = 1;
             pthread_cond_wait(&rq->spool_up, &tmplck);
         }
 
@@ -187,6 +188,11 @@ void init_rq(struct routine_queue* rq, int n_threads){
      * destroy the rq instance
      */
     rq->running_threads = n_threads;
+
+    /* this is used to ensure that >= 1 thread
+     * is ready before exec_routine() is called
+     */
+    rq->set_up = 0;
 }
 
 void init_spool_t(struct spool_t* s, int n_threads){
@@ -222,6 +228,28 @@ void insert_rq(struct routine_queue* rq, void* (*func)(void*),
 
 void exec_routine(struct spool_t* s, void* (*func)(void*),
                                      void* arg){
+    /* this has been added to ensure that at least
+     * one thread has become ready before we insert
+     * routines into the queue
+     *
+     * this can sometimes be an issue because
+     * pthread_cond_signal() may be called before
+     * any threads are waiting
+     * and it takes time to initialize the mutex
+     * used for pthread_cond_wait()
+     *
+     * this is almost certainly overkill, since it
+     * is only important until the first thread
+     * becomes ready
+     *
+     * TODO: decide how i want to solve this problem
+     * a more efficient solution might be to just
+     * have the user of the library usleep(1000)
+     * OR to busy wait, but in a separate function
+     * `wait_for_ready()`
+     */
+    while(!s->rq.set_up);
+
     insert_rq(&s->rq, func, arg);
 }
 

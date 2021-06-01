@@ -45,7 +45,7 @@ struct routine_queue{
     _Atomic int routines_completed; 
     _Atomic int flag;
     _Atomic int running_threads;
-
+    _Atomic _Bool set_up;
 };
 
 struct spool_t{
