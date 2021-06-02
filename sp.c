@@ -31,6 +31,7 @@ void destroy_rq(struct routine_queue* rq){
         }
         free(p);
     }
+    pthread_cond_destroy(&rq->spool_up);
 }
 
 void destroy_tq(struct thread_queue* tq){
@@ -56,6 +57,7 @@ void join_tq(struct thread_queue* tq){
  */
 void destroy_spool_t(struct spool_t* s){
     s->rq.flag = R_EXIT;
+    pthread_cond_broadcast(&s->rq.spool_up);
     join_tq(&s->tq);
     destroy_tq(&s->tq);
 }
