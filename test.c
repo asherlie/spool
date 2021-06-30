@@ -12,6 +12,14 @@ void* tst(void* arg){
     return NULL;
 }
 
+void* single_tst(void* arg){
+    (void)arg;
+    usleep(500000);
+    puts("single test has been run");
+
+    return NULL;
+}
+
 int main(int a, char** b){
     if(a <= 1)return 0;
     struct spool_t s;
@@ -19,10 +27,21 @@ int main(int a, char** b){
     int* arg, count, count_to = atoi(b[1]),
          n_threads = (a > 2) ? atoi(b[2]) : 1;
     int* buf = malloc(sizeof(int)*count_to);
+    struct routine* r[20];
 
     printf("nt: %i ct: %i\n", n_threads, count_to);
 
     init_spool_t(&s, n_threads);
+
+    await_single_routine(exec_routine(&s, single_tst, NULL, 1));
+    for(int i = 0; i < 20; ++i){
+        r[i] = exec_routine(&s, single_tst, NULL, 1);
+    }
+
+    for(int i = 0; i < 20; ++i){
+        await_single_routine(r[i]);
+    }
+
     set_routine_target(&s, count_to);
 
     /* init_spool_t() takes time to set up threads
