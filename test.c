@@ -1,5 +1,6 @@
 #include <unistd.h>
 #include <stdlib.h>
+#include <string.h>
 #include <stdio.h>
 
 #include "sp.h"
@@ -20,6 +21,31 @@ void* single_tst(void* arg){
     return NULL;
 }
 
+struct shared{
+    char* mem;
+};
+
+void* init_mem(void* shared){
+    struct shared* s = shared;
+    s->mem = calloc(10, 1);
+
+    return NULL;
+}
+
+void* set_mem(void* shared){
+    struct shared* s = shared;
+    strncpy(s->mem, "string", 7);
+
+    return NULL;
+}
+
+void* print_mem(void* shared){
+    struct shared* s = shared;
+    puts(s->mem);
+
+    return NULL;
+}
+
 int main(int a, char** b){
     if(a <= 1)return 0;
     struct spool_t s;
@@ -27,20 +53,28 @@ int main(int a, char** b){
     int* arg, count, count_to = atoi(b[1]),
          n_threads = (a > 2) ? atoi(b[2]) : 1;
     int* buf = malloc(sizeof(int)*count_to);
+    struct shared sh_mem;
     struct routine* r[20];
+    (void)r;
 
     printf("nt: %i ct: %i\n", n_threads, count_to);
 
     init_spool_t(&s, n_threads);
 
-    await_single_routine(exec_routine(&s, single_tst, NULL, 1));
-    for(int i = 0; i < 20; ++i){
-        r[i] = exec_routine(&s, single_tst, NULL, 1);
-    }
-
-    for(int i = 0; i < 20; ++i){
-        await_single_routine(r[i]);
-    }
+    /* the following would seg fault
+     * because there's no guarantee that
+     * each routine will finish in order
+     */
+    #if !1
+    exec_routine(&s, init_mem, &sh_mem, 0);
+    exec_routine(&s, set_mem, &sh_mem, 0);
+    exec_routine(&s, print_mem, &sh_mem, 0);
+    #endif
+    /* await_single_routine() is provided for
+     * situations like this, where a strict
+     * ordering of routines is necessary
+     * this could be rewritten as the following
+     */
 
     set_routine_target(&s, count_to);
 
