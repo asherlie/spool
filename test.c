@@ -27,14 +27,14 @@ struct shared{
 
 void* init_mem(void* shared){
     struct shared* s = shared;
-    s->mem = calloc(10, 1);
+    s->mem = calloc(33, 1);
 
     return NULL;
 }
 
 void* set_mem(void* shared){
     struct shared* s = shared;
-    strncpy(s->mem, "string", 7);
+    strncpy(s->mem, "init, set, print ordering check", 32);
 
     return NULL;
 }
@@ -59,7 +59,8 @@ int main(int a, char** b){
 
     init_spool_t(&s, n_threads);
 
-    /* the following will seg fault
+    /* the following will seg fault when
+     * n_threads > 1
      * because there's no guarantee that
      * each routine will finish in order
      */

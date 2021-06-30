@@ -80,18 +80,3 @@ void resume_exec(struct spool_t* s);
 void set_routine_target(struct spool_t* s, int target);
 _Bool await_routine_target(struct spool_t* s);
 void destroy_spool_t(struct spool_t* s);
-
-#if !1
-i want to have the option of waiting for a single thread to finish running
-something like:
-    await_routine_single(spool_t, thread_id)
-
-    thread_id is a timestamp added to the pointer of func
-    it is created in and returned by exec_routine()
-
-    each thread pthread_cond_signals a unique 
-
-    optional argument for exec_routine(), a pointer to a
-    pthread_cond_t that will be signaled once the routine is done
-    in addition to the spool_up cond
-#endif
