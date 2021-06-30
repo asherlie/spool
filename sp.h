@@ -16,8 +16,6 @@ struct thread_queue{
     int n_threads; /* , thread_cap */
 };
 
-//struct routine;
-
 struct routine{
     //volatile void* (*func)(void*);
     void* arg;
@@ -58,11 +56,8 @@ struct spool_t{
     struct routine_queue rq;
 };
 
-/* is used only as the return value of exec_routine()
- * and to wait for a routine to finish running
- */
-
 void init_spool_t(struct spool_t* s, int n_threads);
+
 struct routine* exec_routine(struct spool_t* s, void* (*func)(void*),
                                      void* arg, _Bool create_cond);
 /* await_single_routine() can be safely called for any routine
