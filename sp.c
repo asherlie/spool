@@ -152,6 +152,9 @@ void* await_instructions(void* v_rq){
         prev_run = 1;
 
         r->func(r->arg);
+
+        if(r->running)pthread_cond_signal(r->running);
+
         free(r);
         ++rq->routines_completed;
 
@@ -203,13 +206,37 @@ void init_spool_t(struct spool_t* s, int n_threads){
     init_tq(&s->tq, n_threads, &s->rq);
 }
 
-void insert_rq(struct routine_queue* rq, void* (*func)(void*),
-                                         void* arg){
-    struct routine* r = malloc(sizeof(struct routine));
+struct routine* insert_rq(struct routine_queue* rq, void* (*func)(void*),
+                          void* arg, _Bool create_cond){
+    struct routine* r = malloc(sizeof(struct routine)),
+                  /* r_spoof is used to wait for
+                   * specific routines to finish running
+                   * since await_instructions() will free
+                   * each struct routine*, we must allocate
+                   * a separate one to return to exec_routine()
+                   * that is guaranteed to not be freed
+                   * all that this struct must contain is a 
+                   * pointer to the relevant pthread_cond_t
+                   *
+                   * this could be done using a separate struct
+                   * but isn't in favor of simplicity
+                   */
+                  * r_spoof = (create_cond) ? malloc(sizeof(struct routine)) : NULL;
 
     r->func = func;
     r->arg = arg;
     r->next = NULL;
+    /* if !running, await_instructions() will not attempt
+     * to signal
+     */
+    r->running = NULL;
+    /*free this*/
+    if(create_cond){
+        r->running = malloc(sizeof(pthread_cond_t));
+        /*destroy this*/
+        pthread_cond_init(r->running, NULL);
+        r_spoof->running = r->running;
+    }
 
     pthread_mutex_lock(&rq->rlock);
     if(!rq->first)rq->first = r;
@@ -226,10 +253,17 @@ void insert_rq(struct routine_queue* rq, void* (*func)(void*),
      * what are some workarounds?
      */
     pthread_cond_signal(&rq->spool_up);
+
+    return r_spoof;
 }
 
-void exec_routine(struct spool_t* s, void* (*func)(void*),
-                                     void* arg){
+/* if create_cond, a spoof routine* will be returned
+ * this will be freed and its cond_t destroyed by 
+ * await_single_routine()
+ */
+struct routine* exec_routine(struct spool_t* s,
+                        void* (*func)(void*), void* arg,
+                        _Bool create_cond){
     /* this has been added to ensure that at least
      * one thread has become ready before we insert
      * routines into the queue
@@ -252,7 +286,18 @@ void exec_routine(struct spool_t* s, void* (*func)(void*),
      */
     while(!s->rq.set_up);
 
-    insert_rq(&s->rq, func, arg);
+    return insert_rq(&s->rq, func, arg, create_cond);
+}
+
+void await_single_routine(struct routine* r){
+    pthread_mutex_t lck;
+    pthread_mutex_init(&lck, NULL);
+
+    pthread_mutex_lock(&lck);
+    pthread_cond_wait(r->running, &lck);
+
+    pthread_cond_destroy
+    pthread_mutex_destroy();
 }
 
 void pause_exec(struct spool_t* s){
@@ -280,4 +325,5 @@ _Bool await_routine_target(struct spool_t* s){
 #if 0
 TODO: write destruction/free() functions
 TODO: add await/set target functionality
+TODO: implement changes from retval.diff
 #endif
