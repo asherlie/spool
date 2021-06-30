@@ -153,10 +153,17 @@ void* await_instructions(void* v_rq){
 
         r->func(r->arg);
 
-        if(r->running)pthread_cond_signal(r->running);
+        if(r->running){
+            *r->completed = 1;
+            pthread_cond_signal(r->running);
+        }
 
+        /* in order to keep compatibility between the two blocking methods,
+         * routines_completed will not be incremented when the running cond_t
+         * is being used
+         */
+        else ++rq->routines_completed;
         free(r);
-        ++rq->routines_completed;
 
         /* in case a thread is finishing up func()
          * as we're re-waiting to pause
@@ -233,6 +240,8 @@ struct routine* insert_rq(struct routine_queue* rq, void* (*func)(void*),
     /*free this*/
     if(create_cond){
         r->running = malloc(sizeof(pthread_cond_t));
+        r->completed = r_spoof->completed = calloc(1, sizeof(_Bool));
+
         /*destroy this*/
         pthread_cond_init(r->running, NULL);
         r_spoof->running = r->running;
@@ -290,15 +299,25 @@ struct routine* exec_routine(struct spool_t* s,
 }
 
 void await_single_routine(struct routine* r){
-    pthread_mutex_t lck;
-    pthread_mutex_init(&lck, NULL);
+    /* this will only occur in case of user error */
+    if(!r)return;
+    /* no need to bother if routine has completed
+     * by the time we're called, just clean up
+     */
+    if(!(*r->completed)){
+        pthread_mutex_t lck;
+        pthread_mutex_init(&lck, NULL);
 
-    pthread_mutex_lock(&lck);
-    pthread_cond_wait(r->running, &lck);
+        pthread_mutex_lock(&lck);
+        pthread_cond_wait(r->running, &lck);
+
+        pthread_mutex_destroy(&lck);
+    }
 
     pthread_cond_destroy(r->running);
+    free(r->completed);
     free(r->running);
-    pthread_mutex_destroy(&lck);
+    free(r);
 }
 
 void pause_exec(struct spool_t* s){
