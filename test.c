@@ -38,7 +38,7 @@ int main(int a, char** b){
     for(int i = 0; i < count_to; ++i){
         buf[i] = i;
         arg = buf+i;
-        exec_routine(&s, tst, arg);
+        exec_routine(&s, tst, arg, 0);
     }
     /*destroy_spool_t(&s);*/
     await_routine_target(&s);
