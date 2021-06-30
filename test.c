@@ -54,14 +54,12 @@ int main(int a, char** b){
          n_threads = (a > 2) ? atoi(b[2]) : 1;
     int* buf = malloc(sizeof(int)*count_to);
     struct shared sh_mem;
-    struct routine* r[20];
-    (void)r;
 
     printf("nt: %i ct: %i\n", n_threads, count_to);
 
     init_spool_t(&s, n_threads);
 
-    /* the following would seg fault
+    /* the following will seg fault
      * because there's no guarantee that
      * each routine will finish in order
      */
@@ -75,6 +73,13 @@ int main(int a, char** b){
      * ordering of routines is necessary
      * this could be rewritten as the following
      */
+
+    await_single_routine(
+        exec_routine(&s, init_mem, &sh_mem, 1));
+    await_single_routine(
+        exec_routine(&s, set_mem, &sh_mem, 1));
+    await_single_routine(
+        exec_routine(&s, print_mem, &sh_mem, 1));
 
     set_routine_target(&s, count_to);
 
