@@ -25,6 +25,8 @@ struct routine{
     struct routine* next;
 
     /* used to wait on a single routine */
+    //_Atomic(_Bool*) completed;
+    _Bool* _Atomic completed;
     pthread_cond_t* running;
 };
 
@@ -63,6 +65,13 @@ struct spool_t{
 void init_spool_t(struct spool_t* s, int n_threads);
 struct routine* exec_routine(struct spool_t* s, void* (*func)(void*),
                                      void* arg, _Bool create_cond);
+/* await_single_routine() can be safely called for any routine
+ * returned by exec_routine() without concern for the overall
+ * spool_t
+ * await_single_routine() is guaranteed not to free/destroy any
+ * structs like await_routine_target/set_routine_target will
+ */
+void await_single_routine(struct routine* r);
 void pause_exec(struct spool_t* s);
 void resume_exec(struct spool_t* s);
 /* this is inexact by nature
