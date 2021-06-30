@@ -296,8 +296,9 @@ void await_single_routine(struct routine* r){
     pthread_mutex_lock(&lck);
     pthread_cond_wait(r->running, &lck);
 
-    pthread_cond_destroy
-    pthread_mutex_destroy();
+    pthread_cond_destroy(r->running);
+    free(r->running);
+    pthread_mutex_destroy(&lck);
 }
 
 void pause_exec(struct spool_t* s){
