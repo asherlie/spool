@@ -49,13 +49,13 @@ void* print_mem(void* shared){
 int main(int a, char** b){
     if(a <= 1)return 0;
     struct spool_t s;
-    /*int* arg, count, buf[10000];*/
+
     int* arg, count, count_to = atoi(b[1]),
          n_threads = (a > 2) ? atoi(b[2]) : 1;
     int* buf = malloc(sizeof(int)*count_to);
     struct shared sh_mem;
 
-    printf("nt: %i ct: %i\n", n_threads, count_to);
+    printf("n threads: %i count: %i\n", n_threads, count_to);
 
     init_spool_t(&s, n_threads);
 

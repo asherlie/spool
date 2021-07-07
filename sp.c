@@ -22,7 +22,6 @@ struct routine* pop_rq(struct routine_queue* rq){
  * MEANT TO BE CALLED BY await_instructions()
  */
 void destroy_rq(struct routine_queue* rq){
-    /* ~free rq here~ */
     struct routine* p = rq->first;
     if(p){
         for(struct routine* r = p->next; r; r = r->next){
